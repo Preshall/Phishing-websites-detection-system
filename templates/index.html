@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Phishing URL Detector</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+        .container {
+            background-color: white;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        h1 {
+            color: #212529;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        .subtitle {
+            color: #6c757d;
+            margin-bottom: 32px;
+        }
+        .input-group {
+            margin: 20px 0;
+            display: flex;
+            gap: 12px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.15s ease-in-out;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #4263eb;
+            box-shadow: 0 0 0 3px rgba(66, 99, 235, 0.1);
+        }
+        button {
+            background-color: #4263eb;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            transition: background-color 0.15s ease-in-out;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        button:hover {
+            background-color: #3b5bdb;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+            color: #495057;
+        }
+        .history-section {
+            margin-top: 40px;
+        }
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .history-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: #212529;
+        }
+        .clear-history {
+            color: #868e96;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 4px;
+        }
+        .history-item {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            background: white;
+        }
+        .status-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            flex-shrink: 0;
+        }
+        .status-icon.safe {
+            background-color: #e9faf1;
+            color: #12b76a;
+        }
+        .status-icon.dangerous {
+            background-color: #fee4e2;
+            color: #f04438;
+        }
+        .history-content {
+            flex: 1;
+        }
+        .history-url {
+            font-weight: 500;
+            margin-bottom: 4px;
+            word-break: break-all;
+        }
+        .history-status {
+            font-size: 0.875rem;
+        }
+        .history-status.safe {
+            color: #12b76a;
+        }
+        .history-status.dangerous {
+            color: #f04438;
+        }
+        .history-time {
+            color: #868e96;
+            font-size: 0.875rem;
+            margin-left: 16px;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Phishing URL Detector</h1>
+            <div class="subtitle">Check if a website is potentially dangerous</div>
+        </div>
+        
+        <div class="input-group">
+            <input type="text" id="url" placeholder="Enter URL to analyze (e.g., https://example.com)">
+            <button onclick="analyzeURL()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Analyze URL
+            </button>
+        </div>
+
+        <div id="loading" class="loading">
+            Analyzing URL...
+        </div>
+
+        <div class="history-section">
+            <div class="history-header">
+                <h2>Analysis History</h2>
+                <button class="clear-history" onclick="clearHistory()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M19 7L18.1327 19.1425C18.0579 20.1891 17.187 21 16.1378 21H7.86224C6.81296 21 5.94208 20.1891 5.86732 19.1425L5 7M10 11V17M14 11V17M15 7V4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4V7M4 7H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </div>
+            <div id="history"></div>
+        </div>
+    </div>
+
+    <script>
+        let analysisHistory = JSON.parse(localStorage.getItem('analysisHistory') || '[]');
+        
+        function updateHistory() {
+            const historyElement = document.getElementById('history');
+            historyElement.innerHTML = analysisHistory.map(item => `
+                <div class="history-item">
+                    <div class="status-icon ${item.is_phishing ? 'dangerous' : 'safe'}">
+                        ${item.is_phishing ? 
+                            '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 9V14M12 17.5V18M6.6 21H17.4C18.8359 21 19.5544 21 20.0927 20.7478C20.5645 20.5272 20.9441 20.1627 21.1775 19.7082C21.4444 19.1932 21.4444 18.5109 21.4444 17.1463V6.85366C21.4444 5.48908 21.4444 4.80679 21.1775 4.29175C20.9441 3.83734 20.5645 3.47284 20.0927 3.25216C19.5544 3 18.8359 3 17.4 3H6.6C5.16406 3 4.44609 3 3.90727 3.25216C3.43555 3.47284 3.05592 3.83734 2.82252 4.29175C2.55556 4.80679 2.55556 5.48908 2.55556 6.85366V17.1463C2.55556 18.5109 2.55556 19.1932 2.82252 19.7082C3.05592 20.1627 3.43555 20.5272 3.90727 20.7478C4.44609 21 5.16406 21 6.6 21Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' :
+                            '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.5 12L10.5 15L16.5 9M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+                        }
+                    </div>
+                    <div class="history-content">
+                        <div class="history-url">${item.url}</div>
+                        <div class="history-status ${item.is_phishing ? 'dangerous' : 'safe'}">
+                            ${item.is_phishing ? 'Phishing Detected' : 'Safe Website'}
+                        </div>
+                    </div>
+                    <div class="history-time">${item.time}</div>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            analysisHistory = [];
+            localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
+            updateHistory();
+        }
+
+        function analyzeURL() {
+            const url = document.getElementById('url').value;
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+
+            const loading = document.getElementById('loading');
+            loading.style.display = 'block';
+
+            fetch('/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'url=' + encodeURIComponent(url)
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+                
+                if (!data.error) {
+                    const now = new Date();
+                    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    
+                    analysisHistory.unshift({
+                        url: url,
+                        is_phishing: data.is_phishing,
+                        time: timeStr
+                    });
+
+                    if (analysisHistory.length > 50) {
+                        analysisHistory.pop();
+                    }
+
+                    localStorage.setItem('analysisHistory', JSON.stringify(analysisHistory));
+                    updateHistory();
+                }
+            })
+            .catch(error => {
+                loading.style.display = 'none';
+                alert('Error analyzing URL: ' + error);
+            });
+        }
+
+        // Load history on page load
+        updateHistory();
+    </script>
+</body>
+</html>
